@@ -44,8 +44,7 @@ def validateURL(url):
             print ("Attempt {0} - Status code: {1}. Retrying.".format(count, r.status_code))
             count += 1
             r = urllib2.urlopen(url)
-        sourceFilename = r.headers.get('Content-Disposition')
-
+        sourceFilename = r.geturl()
         if sourceFilename:
             ext = os.path.splitext(sourceFilename)[1].replace('"', '').replace(';', '').replace(' ', '')
         else:
@@ -85,8 +84,8 @@ def convert_mth_strings ( mth_string ):
 
 #### VARIABLES 1.0
 
-entity_id = "E1232_CBC_gov"
-url = "https://www.dorsetforyou.gov.uk/your-council/about-your-council/budgets-and-spending/open-data-and-transparency/payments-to-suppliers-christchurch-borough-council.aspx"
+entity_id = "E1733_EBC_gov"
+url = "https://www.eastleigh.gov.uk/council/general-public-information/transparency-code/council-spending/transparency-spending"
 errors = 0
 data = []
 
@@ -98,26 +97,34 @@ soup = BeautifulSoup(html, 'lxml')
 
 #### SCRAPE DATA
 
-links = soup.find('main', id='main').find_all('li')
-for link in links:
-    if 'http' not in link.find('a')['href']:
-        url = 'https://www.dorsetforyou.gov.uk/' + link.find('a')['href'][1:]
-    else:
-        url = link.find('a')['href'][1:]
-    if '.xlsx' in url or '.xls' in url or '.csv' in url:
-        file_name = link.text.strip()
-        csvYr = link.text.strip()[-4:]
-        if 'Q4' in file_name:
-            csvMth = 'Q1'
-        if 'Q3' in file_name:
-            csvMth = 'Q4'
-        if 'Q2' in file_name:
-            csvMth = 'Q3'
-        if 'Q1' in file_name:
-            csvMth = 'Q2'
-        csvMth = convert_mth_strings(csvMth.upper())
-        data.append([csvYr, csvMth, url])
-
+ul_blocks = soup.find('div', attrs = {'class': 'grid-editor grid-editor--rte'}).find_all('a')
+for ul_block in ul_blocks:
+    link = ul_block['href']
+    if '.csv' in ul_block['href']:
+        if 'credit' not in ul_block['href'] and 'merchant' not in ul_block['href']:
+            file_name = ul_block.text
+            if 'http' not in ul_block['href']:
+                url = 'https://www.eastleigh.gov.uk' + ul_block['href']
+            else:
+                url = ul_block['href']
+            csvMth = ''
+            if ' to ' in file_name:
+                if 'January to March' in file_name or 'January 2015 to March' in file_name:
+                    csvMth = 'Q1'
+                if 'October to December' in file_name:
+                    csvMth = 'Q4'
+                if 'July to Sept' in file_name:
+                    csvMth = 'Q3'
+                if 'April to June' in file_name or 'April 2015 to June' in file_name:
+                    csvMth = 'Q2'
+                csvYr = file_name.replace('csv', '').strip()[-4:]
+                csvMth = convert_mth_strings(csvMth.upper())
+                data.append([csvYr, csvMth, url])
+            else:
+                csvMth = file_name[:3]
+                csvYr = file_name.split()[1]
+                csvMth = convert_mth_strings(csvMth.upper())
+                data.append([csvYr, csvMth, url])
 
 #### STORE DATA 1.0
 
